@@ -1,0 +1,21 @@
+<div class="schema-table">
+  <table class="table table-bordered">
+    {%for name, table in schema.items%}
+    <thead>
+      Database: {{name}} {%for app in table%}
+      <tr>
+        <th>Model: {{app.model}}</th>
+      </tr>
+    </thead>
+    <tr>
+      <th>Field Name</th>
+      <th>Field Type</th>
+    </tr>
+    {%for field in app.fields%}
+    <tr>
+      <td>{{field.name}}</td>
+      <td>{{field.type}}</td>
+    </tr>
+    {%endfor%} {%endfor%} {%endfor%}
+  </table>
+</div>

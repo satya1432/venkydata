@@ -1,0 +1,129 @@
+{% extends 'base.html' %} {% load staticfiles %} {% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-md-8">
+      <form id="query-form">
+        {% csrf_token %}
+        <select name="db" id="db">
+          {%for dt in data%}
+          <option value="{{dt.display_name}}">{{dt.display_name}}</option>
+          {%endfor%}
+        </select>
+        <div class="query" id="query"></div>
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+    <div class="col-md-4">
+      <button id="collapse-schema">Schema</button>
+      <div class="" id="schema"></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-md-12 result"></div>
+  </div>
+</div>
+<script>
+  $("#collapse-schema").click(function() {
+    if ($("#schema").hasClass("invisible")) {
+      $("#schema").removeClass("invisible");
+    } else {
+      $("#schema").addClass("invisible");
+    }
+  });
+  $("#query-form").submit(function(e) {
+    e.preventDefault();
+    var db = document.getElementById("db").value;
+    var query = document.getElementsByClassName("ace_text-input")[0].value;
+    $.ajax({
+      url: `../query/?db=${db}`,
+      method: "POST",
+      data: {
+        db: `${db}`,
+        query: `${query}`,
+        csrfmiddlewaretoken: "{{ csrf_token }}"
+      },
+      success: function(data) {
+        document.getElementsByClassName("result")[0].innerHTML = data;
+      }
+    });
+  });
+  $("#db").change(function() {
+    update_suggestions(aceEditor);
+    show_schema();
+  });
+  function update_suggestions(aceEditor) {
+    var db = document.getElementById("db").value;
+    var tables;
+    var columns;
+    $.ajax({
+      url: `../tables/?db=${db}`,
+      dataType: "json",
+      success: function(data) {
+        tables = data;
+      }
+    });
+
+    $.ajax({
+      url: `../columns/?db=${db}`,
+      dataType: "json",
+      success: function(data) {
+        columns = data;
+      }
+    });
+    var suggestions_to_add = {
+      getCompletions: function(editor, session, pos, prefix, callback) {
+        callback(null, [
+          ...tables.map(function(table) {
+            return {
+              caption: table,
+              value: table,
+              meta: "table"
+            };
+          }),
+          ...columns.map(function(column) {
+            return {
+              caption: column["name"],
+              value: column["name"],
+              meta: "column"
+            };
+          }),
+          ...session.$mode.$highlightRules.$keywordList.map(function(word) {
+            return {
+              caption: word,
+              value: word,
+              meta: "keyword"
+            };
+          })
+        ]);
+      }
+    };
+
+    return (aceEditor.completers = [suggestions_to_add]);
+  }
+  function show_schema() {
+    var db = document.getElementById("db").value;
+    $.ajax({
+      url: `../schema/?db=${db}`,
+      success: function(data) {
+        document.getElementById("schema").innerHTML = data;
+      }
+    });
+  }
+  var aceEditor = window.ace.edit("query");
+  update_suggestions(aceEditor);
+  show_schema();
+  aceEditor.setOptions({
+    enableBasicAutocompletion: true, // the editor completes the statement when you hit Ctrl + Space
+    enableLiveAutocompletion: true, // the editor completes the statement while you are typing
+    showPrintMargin: false, // hides the vertical limiting strip
+    maxLines: Infinity,
+    fontSize: "100%" // ensures that the editor fits in the environment
+  });
+  // defines the style of the editor
+  aceEditor.setTheme("ace/theme/chrome");
+  // hides line numbers (widens the area occupied by error and warning messages)
+  aceEditor.renderer.setOption("showLineNumbers", false);
+  // ensures proper autocomplete, validation and highlighting of JavaScript code
+  aceEditor.getSession().setMode("ace/mode/sql");
+</script>
+{% endblock content %}
